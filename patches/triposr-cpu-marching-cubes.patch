@@ -1,0 +1,59 @@
+diff --git a/tsr/models/isosurface.py b/tsr/models/isosurface.py
+index 076321b..676afca 100644
+--- a/tsr/models/isosurface.py
++++ b/tsr/models/isosurface.py
+@@ -3,7 +3,7 @@ from typing import Callable, Optional, Tuple
+ import numpy as np
+ import torch
+ import torch.nn as nn
+-from torchmcubes import marching_cubes
++from skimage.measure import marching_cubes
+ 
+ 
+ class IsosurfaceHelper(nn.Module):
+@@ -38,15 +38,36 @@ class MarchingCubeHelper(IsosurfaceHelper):
+         return self._grid_vertices
+ 
+     def forward(
+-        self,
+-        level: torch.FloatTensor,
++    self,
++    level: torch.FloatTensor,
+     ) -> Tuple[torch.FloatTensor, torch.LongTensor]:
+-        level = -level.view(self.resolution, self.resolution, self.resolution)
+-        try:
+-            v_pos, t_pos_idx = self.mc_func(level.detach(), 0.0)
+-        except AttributeError:
+-            print("torchmcubes was not compiled with CUDA support, use CPU version instead.")
+-            v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.0)
++
++        level = -level.view(
++            self.resolution,
++            self.resolution,
++            self.resolution
++        )
++
++        volume = level.detach().float().cpu().numpy()
++
++        vertices, faces, _, _ = marching_cubes(
++            volume,
++            level=0.0
++        )
++
++        v_pos = torch.from_numpy(
++            vertices.copy()
++        ).float()
++
++        t_pos_idx = torch.from_numpy(
++            faces.astype(np.int64)
++        )
++
++        # Preserve TripoSR's coordinate convention
+         v_pos = v_pos[..., [2, 1, 0]]
+         v_pos = v_pos / (self.resolution - 1.0)
+-        return v_pos.to(level.device), t_pos_idx.to(level.device)
++
++        return (
++            v_pos.to(level.device),
++            t_pos_idx.to(level.device)
++        )

@@ -1,0 +1,46 @@
+{
+  "camera_pose": {
+    "position": [
+      -1.6,
+      0,
+      0
+    ],
+    "rotation": [
+      0.0,
+      0.7071067811865475,
+      0.0,
+      0.7071067811865475
+    ]
+  },
+  "camera_axes_world": {
+    "right": [
+      0.0,
+      0.0,
+      -1.0
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "forward": [
+      1.0,
+      0.0,
+      0.0
+    ]
+  },
+  "target_object": "gray soda can",
+  "action": {
+    "type": "move",
+    "qualifiers": {
+      "placement": "right_of",
+      "reference_object": "Dark gray open laptop",
+      "distance": 0.2,
+      "unit": "meters"
+    }
+  },
+  "constraints": [
+    "Keep the gray soda can supported on the tabletop"
+  ],
+  "context": "Move the gray soda can 20 cm away from the dark gray laptop."
+}

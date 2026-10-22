@@ -68,9 +68,11 @@ def event_end(event):
     return event_start(event)+event.get('duration_s', 0.)
 
 
-def build_guidance(spec, target, references, mesh):
+def build_guidance(spec, target, references, mesh, alignment_rotation=None):
     """Make composition decisions remotely; return only JSON-compatible data."""
     frame = validate_action(spec)
+    if alignment_rotation is not None:
+        quaternion_matrix(alignment_rotation)
     target_anchor = image_anchor('anchor_target', spec['target_object'], target, spec['scene_image'].size)
     anchors = [target_anchor]
     if reference_required(spec):
@@ -110,9 +112,12 @@ def build_guidance(spec, target, references, mesh):
                     'mesh_center_before_recentering': center.tolist()}],
         'visual_objects': [{
             'id': 'ghost_target', 'kind': 'ghost', 'asset_id': 'mesh_target',
-            'mesh_alignment': {'position_m': [0., 0., 0.], 'rotation_xyzw': IDENTITY.copy(),
+            'mesh_alignment': {'position_m': [0., 0., 0.],
+                               'rotation_xyzw': list(alignment_rotation) if alignment_rotation is not None else IDENTITY.copy(),
                                'scale': [scale]*3, 'space': 'frozen_heading_after_glb_to_unity_import',
-                               'scale_status': 'illustrative_not_measured', 'orientation_status': 'uncalibrated',
+                               'scale_status': 'illustrative_not_measured',
+                               'orientation_status': ('estimated_orient_anything_v2' if alignment_rotation is not None
+                                                      else 'uncalibrated'),
                                'display_max_extent_m': .12},
             'appearance': {'color_rgba': [.2, .7, 1., .4], 'opacity': .4}},
             {'id': 'highlight_target', 'kind': 'highlight', 'shape': 'wire_sphere',
@@ -121,7 +126,10 @@ def build_guidance(spec, target, references, mesh):
         'limitations': {'anchor_positions': 'localized accurately by Unity; not inferred remotely',
                         'metric_offsets': 'exact meters once anchors are localized',
                         'mesh_scale': 'fixed display extent; not a measured object size',
-                        'mesh_orientation': 'uncalibrated reconstruction, initially aligned with frozen heading',
+                        'mesh_orientation': ('estimated from mesh render and capture using Orient Anything V2; '
+                                             'symmetry and reconstruction errors can cause ambiguity'
+                                             if alignment_rotation is not None else
+                                             'uncalibrated reconstruction, initially aligned with frozen heading'),
                         'constraints_enforced': False, 'surface_registration_available': False,
                         'collision_checking': False},
         'semantic_context': {'target_object': spec['target_object'], 'action': copy.deepcopy(spec['action']),

@@ -5,6 +5,9 @@ from pathlib import Path
 import sys
 import time
 
+from .segmentation import DEFAULT_CHECKPOINT, DEFAULT_CONFIG
+from .orientation import DEFAULT_CHECKPOINT as ORIENTATION_CHECKPOINT, DEFAULT_SOURCE as ORIENTATION_SOURCE
+
 os.environ.setdefault('HF_HUB_OFFLINE', '1')
 os.environ.setdefault('TRANSFORMERS_OFFLINE', '1')
 os.environ.setdefault('OMP_NUM_THREADS', '4')
@@ -18,6 +21,10 @@ def main():
     parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--grounding-model', default='IDEA-Research/grounding-dino-tiny')
     parser.add_argument('--reconstruction-model', default='stabilityai/TripoSR')
+    parser.add_argument('--sam2-checkpoint', type=Path, default=DEFAULT_CHECKPOINT)
+    parser.add_argument('--sam2-config', default=DEFAULT_CONFIG)
+    parser.add_argument('--orientation-checkpoint', type=Path, default=ORIENTATION_CHECKPOINT)
+    parser.add_argument('--orientation-source', type=Path, default=ORIENTATION_SOURCE)
     parser.add_argument('--threshold', type=float, default=.3)
     args = parser.parse_args()
     from PIL import Image, ImageOps
@@ -38,10 +45,15 @@ def main():
     from .preprocessing import ObjectPreprocessor
     from .reconstruction import TripoSR
     from .pipeline import GuidanceComposer
+    from .orientation import OrientAnythingV2
     start = time.perf_counter()
     grounder = GroundingDino(args.device, args.grounding_model, args.threshold)
     try:
-        composer = GuidanceComposer(grounder, TripoSR(args.device, args.reconstruction_model), ObjectPreprocessor())
+        composer = GuidanceComposer(grounder, TripoSR(args.device, args.reconstruction_model),
+                                    ObjectPreprocessor(args.device, checkpoint=args.sam2_checkpoint,
+                                                       model_config=args.sam2_config),
+                                    OrientAnythingV2(args.device, checkpoint=args.orientation_checkpoint,
+                                                     source=args.orientation_source))
         init_ms = (time.perf_counter()-start)*1000
         if output:
             (output/'initialization.json').write_text(json.dumps({'model_initialization_ms': init_ms}))

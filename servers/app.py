@@ -5,6 +5,7 @@ import binascii
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import io
 import json
 import logging
@@ -12,6 +13,7 @@ import math
 import os
 from pathlib import Path
 import warnings
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -21,6 +23,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from guidance_composer.frames import axes_from_pose
 from guidance_composer.grounding import GroundingError
+from guidance_composer.segmentation import DEFAULT_CHECKPOINT, DEFAULT_CONFIG
+from guidance_composer.orientation import DEFAULT_CHECKPOINT as ORIENTATION_CHECKPOINT, DEFAULT_SOURCE as ORIENTATION_SOURCE
 from guidance_composer.specification import validate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,11 +67,20 @@ class Settings:
     example_name: str = 'apple_forward.json'
     device: str = 'cuda:0'
     examples_dir: Path = ROOT/'examples'
+    outputs_dir: Path = ROOT/'outputs'
+    sam2_checkpoint: Path = DEFAULT_CHECKPOINT
+    sam2_config: str = DEFAULT_CONFIG
+    orientation_checkpoint: Path = ORIENTATION_CHECKPOINT
+    orientation_source: Path = ORIENTATION_SOURCE
 
     @classmethod
     def from_env(cls):
-        return cls(example_name=os.environ.get('GUIDANCE_EXAMPLE', 'apple_forward.json'),
-                   device=os.environ.get('GUIDANCE_DEVICE', 'cuda:0'))
+        return cls(example_name=os.environ.get('GUIDANCE_EXAMPLE', 'pop_can_test.json'),
+                   device=os.environ.get('GUIDANCE_DEVICE', 'cuda:0'),
+                   sam2_checkpoint=Path(os.environ.get('GUIDANCE_SAM2_CHECKPOINT', DEFAULT_CHECKPOINT)),
+                   sam2_config=os.environ.get('GUIDANCE_SAM2_CONFIG', DEFAULT_CONFIG),
+                   orientation_checkpoint=Path(os.environ.get('GUIDANCE_ORIENTATION_CHECKPOINT', ORIENTATION_CHECKPOINT)),
+                   orientation_source=Path(os.environ.get('GUIDANCE_ORIENTATION_SOURCE', ORIENTATION_SOURCE)))
 
     @property
     def example_path(self):
@@ -120,9 +133,14 @@ def create_composer(settings):
     from guidance_composer.pipeline import GuidanceComposer
     from guidance_composer.preprocessing import ObjectPreprocessor
     from guidance_composer.reconstruction import TripoSR
+    from guidance_composer.orientation import OrientAnythingV2
     grounder = GroundingDino(settings.device)
     try:
-        return GuidanceComposer(grounder, TripoSR(settings.device), ObjectPreprocessor())
+        return GuidanceComposer(grounder, TripoSR(settings.device),
+                                ObjectPreprocessor(settings.device, checkpoint=settings.sam2_checkpoint,
+                                                   model_config=settings.sam2_config),
+                                OrientAnythingV2(settings.device, checkpoint=settings.orientation_checkpoint,
+                                                 source=settings.orientation_source))
     except BaseException:
         grounder.close()
         raise
@@ -142,7 +160,10 @@ def compose_capture(settings, composer, message):
     spec['camera_axes_world'] = (message.camera_axes_world.model_dump(mode='json')
                                  if message.camera_axes_world else axes_from_pose(spec['camera_pose']))
     validate(spec)
-    return composer.generate(spec)  # Complete in-memory response; no diagnostic files.
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S_%fZ')
+    output = settings.outputs_dir/f'server_{Path(settings.example_name).stem}_{stamp}_{uuid4().hex[:8]}'
+    logger.info('Saving guidance request artifacts to %s', output)
+    return composer.generate(spec, output=output)
 
 
 def create_app(settings=None, composer_factory=None):

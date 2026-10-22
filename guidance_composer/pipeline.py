@@ -13,8 +13,9 @@ from .exporting import export_diagnostics, annotation_font
 
 class GuidanceComposer:
     """Keep models loaded. generate returns a transportable dict; debug output is optional."""
-    def __init__(self, grounder, reconstructor, preprocessor):
+    def __init__(self, grounder, reconstructor, preprocessor, orientation=None):
         self.grounder, self.reconstructor, self.preprocessor = grounder, reconstructor, preprocessor
+        self.orientation = orientation
 
     def generate(self, specification, output=None):
         spec = copy.deepcopy({k: v for k, v in specification.items() if k != 'scene_image'})
@@ -55,12 +56,25 @@ class GuidanceComposer:
             if directory:
                 isolated.save(directory/'isolated.png')
                 prepared.save(directory/'reconstruction_input.png')
+                if hasattr(self.preprocessor, 'diagnostics'):
+                    (directory/'preprocessing.json').write_text(json.dumps(self.preprocessor.diagnostics, indent=2))
+                if hasattr(self.preprocessor, 'mask_image'):
+                    self.preprocessor.mask_image.save(directory/'segmentation_mask.png')
             mesh, model_timings = self.reconstructor.reconstruct(prepared)
             timings.update(model_timings)
             if not len(mesh.vertices) or not len(mesh.faces) or not np.isfinite(mesh.vertices).all():
                 raise ValueError('Reconstruction produced an empty or invalid mesh')
+            alignment_rotation = None
+            if self.orientation is not None:
+                t = time.perf_counter()
+                alignment_rotation, orientation_diagnostics, orientation_images = self.orientation.align(mesh, isolated, spec)
+                timings['orientation_estimation_ms'] = (time.perf_counter()-t)*1000
+                if directory:
+                    (directory/'orientation.json').write_text(json.dumps(orientation_diagnostics, indent=2, allow_nan=False))
+                    for name, image in orientation_images.items():
+                        image.save(directory/name)
             t = time.perf_counter()
-            result = build_guidance(spec, target, references, mesh)
+            result = build_guidance(spec, target, references, mesh, alignment_rotation=alignment_rotation)
             timings['composition_and_glb_ms'] = (time.perf_counter()-t)*1000
             if directory:
                 t = time.perf_counter()

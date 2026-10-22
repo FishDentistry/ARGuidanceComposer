@@ -5,8 +5,13 @@ triposr_benchmarking
 .venv310
 .guidance-deps/
 outputs/
+checkpoints/
+third_party/orient_anything_v2/
 __pycache__/
 *.pyc
 
 docs
 tests
+
+checkpoints
+third_party/orient_anything_v2
