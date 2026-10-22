@@ -1,0 +1,47 @@
+{
+  "camera_pose": {
+    "position": [
+      0,
+      1.6,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  "camera_axes_world": {
+    "right": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "forward": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "target_object": "Office chair with armrests",
+  "action": {
+    "type": "rotate",
+    "qualifiers": {
+      "angle": 90,
+      "unit": "degrees",
+      "axis": "y",
+      "direction": "clockwise"
+    }
+  },
+  "constraints": [
+    "Keep the chair upright",
+    "Keep the chair on the floor"
+  ],
+  "context": "Rotate the chair 90 degrees clockwise as viewed from above the floor"
+}

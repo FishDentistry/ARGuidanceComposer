@@ -1,0 +1,46 @@
+{
+  "camera_pose": {
+    "position": [
+      0,
+      1.6,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  "camera_axes_world": {
+    "right": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "forward": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "target_object": "green apple",
+  "action": {
+    "type": "move",
+    "qualifiers": {
+      "distance": 0.2,
+      "unit": "meters",
+      "direction": "forward"
+    }
+  },
+  "constraints": [
+    "Keep the apple supported on the laptop or tabletop",
+    "Avoid the takeaway cup"
+  ],
+  "context": "Move the green apple 20 cm away from the captured camera along its horizontal heading. Camera pose is an arbitrary inspection placeholder."
+}

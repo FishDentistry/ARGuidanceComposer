@@ -1,0 +1,46 @@
+{
+  "camera_pose": {
+    "position": [
+      0,
+      1.6,
+      0
+    ],
+    "rotation": [
+      0.28526559621496306,
+      0.44957445286627684,
+      -0.019115118289397135,
+      0.8462511230118942
+    ]
+  },
+  "camera_axes_world": {
+    "right": [
+      0.4999999999999995,
+      0.0,
+      -0.866025403784439
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "forward": [
+      0.866025403784439,
+      0.0,
+      0.4999999999999995
+    ]
+  },
+  "target_object": "Office chair with armrests",
+  "action": {
+    "type": "move",
+    "qualifiers": {
+      "distance": 0.25,
+      "unit": "meters",
+      "direction": "right"
+    }
+  },
+  "constraints": [
+    "Keep the chair upright",
+    "Keep the chair on the floor"
+  ],
+  "context": "Translate right using captured heading despite camera pitch and roll."
+}

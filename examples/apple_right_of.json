@@ -1,0 +1,46 @@
+{
+  "camera_pose": {
+    "position": [
+      0,
+      1.6,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  "camera_axes_world": {
+    "right": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "forward": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "target_object": "yellow apple",
+  "action": {
+    "type": "move",
+    "qualifiers": {
+      "placement": "right_of",
+      "reference_object": "Closed silver laptop with stickers on its lid",
+      "distance": 0.1,
+      "unit": "meters"
+    }
+  },
+  "constraints": [
+    "Place the apple on the tabletop"
+  ],
+  "context": "Place the apple anchor 10 cm camera-right of the laptop anchor. Camera pose is an arbitrary inspection placeholder."
+}

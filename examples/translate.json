@@ -1,0 +1,46 @@
+{
+  "camera_pose": {
+    "position": [
+      0,
+      1.6,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  "camera_axes_world": {
+    "right": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "forward": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "target_object": "Office chair with armrests",
+  "action": {
+    "type": "move",
+    "qualifiers": {
+      "distance": 0.25,
+      "unit": "meters",
+      "direction": "right"
+    }
+  },
+  "constraints": [
+    "Keep the chair upright",
+    "Keep the chair on the floor"
+  ],
+  "context": "Move the chair to the right to clear the workspace"
+}

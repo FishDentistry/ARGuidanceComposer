@@ -1,0 +1,4 @@
+# Already present in .venv310 when the testing server was added.
+# Install only if missing; retain the existing model environment.
+fastapi==0.150.0
+uvicorn==0.54.0

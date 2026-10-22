@@ -3,3 +3,10 @@ triposr_benchmarking
 
 .venv
 .venv310
+.guidance-deps/
+outputs/
+__pycache__/
+*.pyc
+
+docs
+tests
