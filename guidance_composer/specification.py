@@ -31,7 +31,9 @@ def validate_rotation(q):
 def validate_action(spec):
     frame = captured_frame(spec['camera_pose'], spec.get('camera_axes_world'))
     action = spec['action']
-    q = action['qualifiers']
+    q = action.get('qualifiers', {}) if action['type'] == 'highlight' else action['qualifiers']
+    if not isinstance(q, dict):
+        raise ValueError('action qualifiers must be an object')
     if q.get('relative_to', 'camera') != 'camera':
         raise ValueError('directions always use the frozen captured camera axes')
     if 'distance_mode' in q:
@@ -50,8 +52,18 @@ def validate_action(spec):
             validate_rotation(q['rotation'])
     elif action['type'] == 'rotate':
         validate_rotation(q)
+    elif action['type'] == 'highlight':
+        if set(q)-{'duration_s', 'radius_m', 'color_rgba'}:
+            raise ValueError('highlight supports only duration_s, radius_m, and color_rgba')
+        for key, default in (('duration_s', 2.5), ('radius_m', .075)):
+            value = float(q.get(key, default))
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError(f'highlight {key} must be finite and positive')
+        color = finite_vector(q.get('color_rgba', [1., .75, .1, .7]), 4, 'highlight color_rgba')
+        if any(color < 0) or any(color > 1):
+            raise ValueError('highlight color_rgba values must be between zero and one')
     else:
-        raise ValueError('supported actions are move and rotate')
+        raise ValueError('supported actions are move, rotate, and highlight')
     for key in ('reference_object', 'surface'):
         if key in q and (not isinstance(q[key], str) or not q[key].strip()):
             raise ValueError(f'{key} must be a nonempty natural-language description')

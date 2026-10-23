@@ -50,38 +50,41 @@ class GuidanceComposer:
                     draw.text(tuple(region['box'][:2]), f"{label}: {region['score']:.2f}",
                               fill='red', font=annotation_font(scene.width), stroke_width=1, stroke_fill='white')
                 annotated.save(directory/'grounding.png')
-            t = time.perf_counter()
-            isolated, prepared = self.preprocessor.prepare(scene, target['box'])
-            timings['preprocessing_ms'] = (time.perf_counter()-t)*1000
-            if directory:
-                isolated.save(directory/'isolated.png')
-                prepared.save(directory/'reconstruction_input.png')
-                if hasattr(self.preprocessor, 'diagnostics'):
-                    (directory/'preprocessing.json').write_text(json.dumps(self.preprocessor.diagnostics, indent=2))
-                if hasattr(self.preprocessor, 'mask_image'):
-                    self.preprocessor.mask_image.save(directory/'segmentation_mask.png')
-            mesh, model_timings = self.reconstructor.reconstruct(prepared)
-            timings.update(model_timings)
-            if not len(mesh.vertices) or not len(mesh.faces) or not np.isfinite(mesh.vertices).all():
-                raise ValueError('Reconstruction produced an empty or invalid mesh')
+            mesh = None
             alignment_rotation = None
-            if self.orientation is not None:
+            if spec['action']['type'] != 'highlight':
                 t = time.perf_counter()
-                alignment_rotation, orientation_diagnostics, orientation_images = self.orientation.align(mesh, isolated, spec)
-                timings['orientation_estimation_ms'] = (time.perf_counter()-t)*1000
+                isolated, prepared = self.preprocessor.prepare(scene, target['box'])
+                timings['preprocessing_ms'] = (time.perf_counter()-t)*1000
                 if directory:
-                    (directory/'orientation.json').write_text(json.dumps(orientation_diagnostics, indent=2, allow_nan=False))
-                    for name, image in orientation_images.items():
-                        image.save(directory/name)
+                    isolated.save(directory/'isolated.png')
+                    prepared.save(directory/'reconstruction_input.png')
+                    if hasattr(self.preprocessor, 'diagnostics'):
+                        (directory/'preprocessing.json').write_text(json.dumps(self.preprocessor.diagnostics, indent=2))
+                    if hasattr(self.preprocessor, 'mask_image'):
+                        self.preprocessor.mask_image.save(directory/'segmentation_mask.png')
+                mesh, model_timings = self.reconstructor.reconstruct(prepared)
+                timings.update(model_timings)
+                if not len(mesh.vertices) or not len(mesh.faces) or not np.isfinite(mesh.vertices).all():
+                    raise ValueError('Reconstruction produced an empty or invalid mesh')
+                if self.orientation is not None:
+                    t = time.perf_counter()
+                    alignment_rotation, orientation_diagnostics, orientation_images = self.orientation.align(mesh, isolated, spec)
+                    timings['orientation_estimation_ms'] = (time.perf_counter()-t)*1000
+                    if directory:
+                        (directory/'orientation.json').write_text(json.dumps(orientation_diagnostics, indent=2, allow_nan=False))
+                        for name, image in orientation_images.items():
+                            image.save(directory/name)
             t = time.perf_counter()
             result = build_guidance(spec, target, references, mesh, alignment_rotation=alignment_rotation)
             timings['composition_and_glb_ms'] = (time.perf_counter()-t)*1000
             if directory:
                 t = time.perf_counter()
                 export_diagnostics(result, directory)
-                centered = mesh.copy()
-                centered.apply_translation(-centered.bounds.mean(axis=0))
-                centered.export(directory/'reconstructed.glb')
+                if mesh is not None:
+                    centered = mesh.copy()
+                    centered.apply_translation(-centered.bounds.mean(axis=0))
+                    centered.export(directory/'reconstructed.glb')
                 timings['diagnostic_export_and_preview_ms'] = (time.perf_counter()-t)*1000
             timings['total_request_ms'] = (time.perf_counter()-start)*1000
             result['timings_ms'] = timings

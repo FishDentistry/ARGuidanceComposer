@@ -38,6 +38,17 @@ For a Unity device on another machine, use this computer's reachable LAN address
 e.g. http://192.168.1.20:8000/guidance. 0.0.0.0 is a bind address, not a client URL.
 This is an unauthenticated development/testing server.
 
+## Highlight-only scenario
+
+Set GUIDANCE_EXAMPLE=highlight.json to return a stationary target highlight.
+The image/pose request is unchanged. The response contains one highlight visual,
+one target anchor, an empty assets array, and spawn/hold/visibility events.
+The request skips segmentation, reconstruction, and orientation inference;
+the server still initializes its model set at startup so example edits can switch
+to move/rotate without restarting. Highlight runs save previews and grounding
+artifacts, without mesh or reconstruction artifacts. See the root README for
+optional duration, radius, and RGBA qualifiers.
+
 ## Request from Unity
 
 POST /guidance with Content-Type: application/json:

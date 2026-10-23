@@ -6,7 +6,9 @@ self-contained JSON manifest that Unity can localize and play back.
 
 The pipeline uses **Grounding DINO → SAM2.1 → TripoSR → Orient Anything V2** to locate
 the target, segment it, reconstruct a ghost mesh, and estimate its initial
-orientation. The composer supplies the movement path, arrow, highlight, animation,
+orientation for movement actions. Highlight-only actions require target grounding
+and skip segmentation, reconstruction, and orientation inference. The composer
+supplies the movement path, arrow, highlight, animation,
 and playback instructions. Unity supplies physical anchor localization and rendering.
 
 ## Contents
@@ -344,7 +346,7 @@ must provide their actual pose and matching axes.
 | `camera_pose.position` | Required three-element Unity-world position in meters |
 | `camera_pose.rotation` | Required unit quaternion in `[x, y, z, w]` order |
 | `camera_axes_world` | Required by the direct Python/CLI specification; frozen, gravity-aligned world-space right/up/forward vectors |
-| `action.type` | `move` or `rotate` |
+| `action.type` | `move`, `rotate`, or `highlight` |
 | `action.qualifiers` | Numerical and enumerated fields that determine execution |
 | `constraints` | Optional list of strings; retained as metadata and **not enforced** |
 | `context` | Optional descriptive string; retained as metadata and **not interpreted as an instruction** |
@@ -359,6 +361,41 @@ no-match cases and similarly scored competing detections instead of selecting on
 arbitrarily. A reference object is grounded only when a placement requires it;
 mentioning an object in context, constraints, or a `surface` string does not add a
 reference anchor.
+
+### Highlight: draw attention to a target
+
+A standalone highlight displays a stationary wire sphere at the target anchor:
+
+```json
+{
+  "type": "highlight",
+  "qualifiers": {
+    "duration_s": 2.5,
+    "radius_m": 0.075,
+    "color_rgba": [1.0, 0.75, 0.1, 0.7]
+  }
+}
+```
+
+All three qualifiers are optional; omitting them (or the entire `qualifiers`
+object) uses the values above. `duration_s` and `radius_m` must be finite and
+positive. `color_rgba` contains four finite values between 0 and 1, with alpha
+used directly as opacity. Other highlight qualifiers are rejected.
+
+The radius is a presentation setting in meters, not a measured object boundary.
+The sphere is centered on the same target image anchor used by other actions;
+it is not a silhouette outline. No reference object is required. A highlight
+manifest contains one anchor, one highlight visual, and an empty `assets` array.
+It has no ghost, arrow, or transform animation. It spawns immediately, stays
+visible for `duration_s`, hides, then repeats after a 0.25 s gap under the default
+loop policy.
+
+Use `examples/highlight.json` with the CLI, or start the server with
+`GUIDANCE_EXAMPLE=highlight.json`. Reconstruction and orientation checkpoints are
+not accessed by the highlight generation path itself; the existing CLI/server
+factories still initialize their normal model set at startup. A detector-only
+Python caller can use `GuidanceComposer(grounder, None, None)` for highlight-only
+specifications.
 
 ### Translation: move from the target's starting position
 
@@ -625,13 +662,17 @@ would duplicate the conversion. The fixed 0.12 m display extent is illustrative,
 not a measured physical object size. Pose estimation and mesh scale remain
 approximate even when instruction offsets are exact.
 
-Default playback spawns at 0 s, animates from 0.5–2.0 s, holds until 2.5 s, hides,
+Default move/rotate playback spawns at 0 s, animates from 0.5–2.0 s, holds until 2.5 s, hides,
 and restarts at 2.75 s. The current semantic specification does not configure these
-times. Unity executes the supplied timeline rather than reinterpreting the task
+times; highlight actions support the display duration described above. Unity executes the supplied timeline rather than reinterpreting the task
 text. See the [Unity guidance contract](docs/unity_guidance_contract.md) for the
 complete transform, interpolation, pivot, and playback rules.
 
 ## Diagnostics
+
+Highlight-only runs save the capture, specification, grounding results, preview,
+preview anchors, guidance, and timings. Mesh, segmentation, and orientation
+artifacts are generated only for actions that use those stages.
 
 | Artifact | Purpose |
 |---|---|

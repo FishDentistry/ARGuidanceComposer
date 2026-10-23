@@ -68,28 +68,8 @@ def event_end(event):
     return event_start(event)+event.get('duration_s', 0.)
 
 
-def build_guidance(spec, target, references, mesh, alignment_rotation=None):
-    """Make composition decisions remotely; return only JSON-compatible data."""
-    frame = validate_action(spec)
-    if alignment_rotation is not None:
-        quaternion_matrix(alignment_rotation)
-    target_anchor = image_anchor('anchor_target', spec['target_object'], target, spec['scene_image'].size)
-    anchors = [target_anchor]
-    if reference_required(spec):
-        anchors.append(image_anchor('anchor_reference', spec['action']['qualifiers']['reference_object'],
-                                    references['reference_object'], spec['scene_image'].size))
-    extent = float(np.max(mesh.extents))
-    if not math.isfinite(extent) or extent <= 0 or len(mesh.faces) == 0 or not np.isfinite(mesh.vertices).all():
-        raise ValueError('invalid reconstructed mesh')
-    # Asset retains mesh-local axes. Center only its arbitrary origin.
-    centered = mesh.copy()
-    center = centered.bounds.mean(axis=0)
-    centered.apply_translation(-center)
-    from .exporting import ghost_mesh
-    blob = ghost_mesh(centered).export(file_type='glb')
-    plan = motion_plan(spec)
-    scale = .12/extent  # Presentation policy, NOT a physical size estimate.
-    result = {
+def base_manifest(spec, frame, anchors):
+    return {
         'schema_version': '1.0',
         'coordinate_frame': frame.as_dict(),
         'capture': {'camera_pose': copy.deepcopy(spec['camera_pose']),
@@ -103,6 +83,51 @@ def build_guidance(spec, target, references, mesh, alignment_rotation=None):
                       'appearance_rule': 'override_material_rgba; do_not_multiply_alpha',
                       'pivot_rule': 'root_world = pivot_world + heading * q * inverse_heading * (base_world - pivot_world)',
                       'mesh_transform_order': 'import_to_unity_then_alignment_TRS_then_animated_root'},
+        'anchors': anchors, 'assets': [], 'visual_objects': [], 'timeline': [],
+        'limitations': {'anchor_positions': 'localized accurately by Unity; not inferred remotely',
+                        'constraints_enforced': False, 'surface_registration_available': False,
+                        'collision_checking': False},
+        'semantic_context': {'target_object': spec['target_object'], 'action': copy.deepcopy(spec['action']),
+                             'constraints': list(spec.get('constraints', [])),
+                             'context': spec.get('context', '')}}
+
+
+def build_guidance(spec, target, references, mesh=None, alignment_rotation=None):
+    """Make composition decisions remotely; return only JSON-compatible data."""
+    frame = validate_action(spec)
+    if alignment_rotation is not None:
+        quaternion_matrix(alignment_rotation)
+    target_anchor = image_anchor('anchor_target', spec['target_object'], target, spec['scene_image'].size)
+    anchors = [target_anchor]
+    if reference_required(spec):
+        anchors.append(image_anchor('anchor_reference', spec['action']['qualifiers']['reference_object'],
+                                    references['reference_object'], spec['scene_image'].size))
+    if spec['action']['type'] == 'highlight':
+        q = spec['action'].get('qualifiers', {})
+        duration = float(q.get('duration_s', 2.5))
+        color = list(map(float, q.get('color_rgba', [1., .75, .1, .7])))
+        result = base_manifest(spec, frame, anchors)
+        result['visual_objects'] = [{'id': 'highlight_target', 'kind': 'highlight',
+            'shape': 'wire_sphere', 'radius_m': float(q.get('radius_m', .075)),
+            'appearance': {'color_rgba': color, 'opacity': color[3]}}]
+        result['limitations']['highlight_size'] = 'display radius; not measured object geometry'
+        return (TimelineBuilder(result)
+                .spawn('highlight_target', position=position('anchor_target'))
+                .hold('highlight_target', 0., duration)
+                .visibility('highlight_target', duration, False).finish())
+    extent = float(np.max(mesh.extents))
+    if not math.isfinite(extent) or extent <= 0 or len(mesh.faces) == 0 or not np.isfinite(mesh.vertices).all():
+        raise ValueError('invalid reconstructed mesh')
+    # Asset retains mesh-local axes. Center only its arbitrary origin.
+    centered = mesh.copy()
+    center = centered.bounds.mean(axis=0)
+    centered.apply_translation(-center)
+    from .exporting import ghost_mesh
+    blob = ghost_mesh(centered).export(file_type='glb')
+    plan = motion_plan(spec)
+    scale = .12/extent  # Presentation policy, NOT a physical size estimate.
+    result = {
+        **base_manifest(spec, frame, anchors),
         'anchors': anchors,
         'assets': [{'id': 'mesh_target', 'format': 'glb', 'encoding': 'base64',
                     'data': base64.b64encode(blob).decode('ascii'), 'sha256': hashlib.sha256(blob).hexdigest(),
